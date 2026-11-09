@@ -4,17 +4,14 @@
 #   ./run.sh post [--manifest out/pre-<run-id>/manifest.json]
 #   ./run.sh report --pre out/pre-<run-id> [--post out/post-<run-id>]
 #   ./run.sh setup [--delete]     dev only: token, license, repositories
+# Uses the published runner image; `docker compose build` builds it locally instead.
 set -eu
 cd "$(dirname "$0")"
 
-command="${1:-}"
-case "$command" in
+case "${1:-}" in
   pre|post|report) module=aut ;;
   setup) module=aut.setup; shift ;;
   *) echo "usage: $0 pre|post|report|setup [options]" >&2; exit 64 ;;
 esac
 
-if [ "$command" = pre ] || [ "$command" = post ]; then
-  docker compose up -d --build docker maven npm pypi helm curl
-fi
-exec docker compose run --rm --build runner python -m "$module" "$@"
+exec docker compose run --rm runner python -m "$module" "$@"

@@ -4,7 +4,14 @@ This suite checks an Artifactory instance before and after an upgrade. For Docke
 
 ## Requirements
 
-You need Docker with Compose v2.13 or later. The suite runs entirely in containers: a Python/pytest runner and one client container each for skopeo, mvn, npm, pip/twine, helm, and curl. The runner controls the clients through the mounted Docker socket.
+You need Docker with Compose v2.13 or later. The suite runs in one container built from `Dockerfile`. It holds the Python/pytest runner and every native client: skopeo, mvn, npm, pip/twine, helm, and curl. GitHub Actions publishes it as `ghcr.io/maxpschonder/artifactory-upgrade-tests` (tags `latest`, `sha-<commit>`, and `<version>` for `v*` tags; amd64 and arm64). `./run.sh` pulls that image if it is missing and mounts the checkout, so code and config changes need no rebuild. `docker compose build` builds the image locally instead, and `AUT_IMAGE` selects another tag.
+
+The image also runs without a checkout, for example in a CI job:
+
+```sh
+docker run --rm -e ARTIFACTORY_URL -e ARTIFACTORY_TOKEN -v "$PWD/out:/opt/aut/out" \
+  -v "$PWD/config.yaml:/opt/aut/config.yaml" ghcr.io/maxpschonder/artifactory-upgrade-tests python -m aut pre
+```
 
 A full run needs an instance that supports all six formats, which means Artifactory Pro or a trial license. JFrog Container Registry lacks Maven, npm, and PyPI, and Artifactory OSS lacks Docker, npm, PyPI, and Helm. To test a subset, set `AUT_FORMATS`, for example `AUT_FORMATS=maven,generic` for OSS. The report then marks the other formats as DISABLED.
 
@@ -58,7 +65,7 @@ curl -u admin:password -X DELETE \
 ./run.sh post         # maven/local shows FAIL under "Post: old artifacts"
 ```
 
-`./run.sh setup --delete` removes the configured test repositories. To remove the dev instance and its data, run `docker compose -f dev/compose.yml down -v`. To remove the client containers and the shared work volume, run `docker compose down -v`.
+`./run.sh setup --delete` removes the configured test repositories. To remove the dev instance and its data, run `docker compose -f dev/compose.yml down -v`. To remove the Maven cache volume, run `docker compose down -v`.
 
 ## Development
 
@@ -76,6 +83,7 @@ python -m pytest
 | `aut/plugin.py`, `suite_tests/` | pytest parametrization and result capture |
 | `aut/report.py` | HTML report |
 | `aut/setup.py` | Dev token, license, and repository setup |
+| `Dockerfile`, `.github/workflows/image.yml` | Runner image and its build and publish workflow (unit tests, then a multi-arch push to ghcr.io) |
 
 ## Known limitations
 
@@ -83,4 +91,4 @@ python -m pytest
 - Maven downloads its deploy and dependency plugins from Maven Central; only the artifacts under test go through Artifactory. For `http://` URLs the generated Maven settings lift Maven's plain-HTTP block.
 - Docker, npm, PyPI, and Helm have not run against a live instance yet, because that needs a Pro or trial license.
 - Remote-cache checks query AQL, which needs a token with read access to the `<remote>-cache` repositories.
-- The runner needs the Docker socket. A GitLab pipeline needs a runner with Docker access (for example, Docker-in-Docker).
+- The ghcr.io package inherits the repository's private visibility, so pulling it needs `docker login ghcr.io` with a token that has `read:packages`, unless the package is made public.

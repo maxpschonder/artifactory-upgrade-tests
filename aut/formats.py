@@ -1,7 +1,7 @@
 """Format adapters: build a test artifact, push it, pull with a fresh client cache.
 
 Every pull returns {file name: SHA-256} for the bytes the native client received.
-Scripts run in client containers and read credentials from $ARTIFACTORY_USER,
+Scripts run in the runner image and read credentials from $ARTIFACTORY_USER,
 $AUT_USER_Q (URL-encoded user), and $ARTIFACTORY_TOKEN.
 """
 import base64
@@ -125,10 +125,10 @@ class Maven(Adapter):
         jar = f"{c['artifact']}-{c['version']}.jar"
         out = ctx.tmp("pull")
         # Deleting the coordinates from the local repo gives a fresh cache while keeping plugins.
-        ctx.run("maven", f"rm -rf /root/.m2/repository/{q(rel)} && "
+        ctx.run("maven", f"rm -rf \"$HOME\"/.m2/repository/{q(rel)} && "
                          f"mvn -B -ntp -s {q(str(self.settings(ctx, repo)))} {self.plugins['dependency']}:get "
                          f"-Dtransitive=false -Dartifact={q(gav)} && "
-                         f"cp /root/.m2/repository/{q(rel)}/{q(jar)} {q(str(out))}/", ctx.log)
+                         f"cp \"$HOME\"/.m2/repository/{q(rel)}/{q(jar)} {q(str(out))}/", ctx.log)
         return sha256_dir(out)
 
 

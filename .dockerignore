@@ -1,0 +1,7 @@
+.env
+.git
+.context
+out
+dev/*.lic
+**/__pycache__
+.pytest_cache

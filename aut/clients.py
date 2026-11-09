@@ -50,32 +50,27 @@ class Log:
         return "\n".join(self.lines)
 
 
-class DockerExec:
-    """Runs shell scripts in aut-<service> containers.
+class Shell:
+    """Runs client shell scripts; all native clients live in the runner image.
 
     Credentials travel as environment variables, so scripts reference
-    $ARTIFACTORY_TOKEN instead of embedding the value.
+    $ARTIFACTORY_TOKEN instead of embedding the value. The service name
+    only labels the log.
     """
 
-    def __init__(self, config, prefix="aut-", timeout=900):
-        self.prefix = prefix
+    def __init__(self, config, timeout=900):
         self.timeout = timeout
         self.env = {
             "ARTIFACTORY_TOKEN": config.token,
             "ARTIFACTORY_USER": config.user,
             "AUT_USER_Q": quote(config.user, safe=""),
-            "HOME": "/root",
         }
 
     def __call__(self, service, script, log):
         log.add(f"$ [{service}] {script}")
-        args = ["docker", "exec"]
-        for name in self.env:
-            args += ["-e", name]
-        args += [self.prefix + service, "sh", "-ec", script]
         try:
-            proc = subprocess.run(args, env={**os.environ, **self.env}, capture_output=True,
-                                  text=True, timeout=self.timeout)
+            proc = subprocess.run(["sh", "-ec", script], env={**os.environ, **self.env},
+                                  capture_output=True, text=True, timeout=self.timeout)
         except subprocess.TimeoutExpired as e:
             raise CommandError(f"{service}: timed out after {self.timeout}s") from e
         output = (proc.stdout + proc.stderr).strip()

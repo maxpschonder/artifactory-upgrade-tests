@@ -16,9 +16,9 @@ SUITE_DIR = Path(__file__).resolve().parent.parent / "suite_tests"
 
 
 def default_runtime(config):
-    from .clients import Api, DockerExec
+    from .clients import Api, Shell
     from .formats import ADAPTERS
-    return DockerExec(config), Api(config), ADAPTERS
+    return Shell(config), Api(config), ADAPTERS
 
 
 def now():
@@ -86,7 +86,7 @@ def main(argv=None, env=None):
     p.add_argument("phase", choices=["pre", "post", "report"])
     p.add_argument("--config", default=os.environ.get("AUT_CONFIG", "config.yaml"))
     p.add_argument("--out", default="out", help="output directory")
-    p.add_argument("--workdir", default="/work", help="directory shared with client containers")
+    p.add_argument("--workdir", default="/work", help="scratch directory for built and pulled artifacts")
     p.add_argument("--manifest", help="post: manifest of the pre run (default: latest pre in --out)")
     p.add_argument("--pre", help="report: pre run directory")
     p.add_argument("--post", help="report: post run directory")
