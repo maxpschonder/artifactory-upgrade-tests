@@ -1,0 +1,68 @@
+# Runner plus one long-lived client container per native tool. The runner drives
+# the clients with `docker exec` and shares files with them through /work.
+name: aut
+
+x-proxy: &proxy
+  # Reserved for instances behind an HTTP proxy; forwarded as-is for now.
+  HTTP_PROXY: ${HTTP_PROXY:-}
+  HTTPS_PROXY: ${HTTPS_PROXY:-}
+  NO_PROXY: ${NO_PROXY:-}
+
+x-client: &client
+  entrypoint: []
+  command: ["sleep", "infinity"]
+  init: true
+  user: root
+  volumes: [work:/work]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  environment: *proxy
+
+services:
+  runner:
+    build: {context: ., dockerfile: clients/runner.Dockerfile}
+    profiles: [runner]
+    working_dir: /suite
+    volumes:
+      - .:/suite
+      - work:/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      <<: *proxy
+      ARTIFACTORY_URL: ${ARTIFACTORY_URL:-}
+      ARTIFACTORY_TOKEN: ${ARTIFACTORY_TOKEN:-}
+      ARTIFACTORY_USER: ${ARTIFACTORY_USER:-}
+      ARTIFACTORY_ADMIN_USER: ${ARTIFACTORY_ADMIN_USER:-admin}
+      ARTIFACTORY_ADMIN_PASSWORD: ${ARTIFACTORY_ADMIN_PASSWORD:-password}
+      AUT_CONFIG: ${AUT_CONFIG:-config.yaml}
+      AUT_FORMATS: ${AUT_FORMATS:-}
+
+  docker:
+    <<: *client
+    image: quay.io/skopeo/stable:v1.16.1
+    container_name: aut-docker
+  maven:
+    <<: *client
+    image: maven:3.9-eclipse-temurin-21
+    container_name: aut-maven
+    volumes: [work:/work, m2:/root/.m2]
+  npm:
+    <<: *client
+    image: node:22-alpine
+    container_name: aut-npm
+  pypi:
+    <<: *client
+    build: {context: clients, dockerfile: pypi.Dockerfile}
+    container_name: aut-pypi
+  helm:
+    <<: *client
+    image: alpine/helm:3.16.3
+    container_name: aut-helm
+  curl:
+    <<: *client
+    image: curlimages/curl:8.11.0
+    container_name: aut-curl
+
+volumes:
+  work:
+  m2:

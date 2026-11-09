@@ -1,0 +1,39 @@
+# Development Artifactory. Data lives in named volumes, so changing
+# ARTIFACTORY_VERSION and recreating the container performs an upgrade.
+# ARTIFACTORY_EDITION: pro (default, needs a license) or oss (Maven and Generic only).
+# Current Artifactory versions refuse to start on the embedded Derby database.
+name: aut-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: artifactory
+      POSTGRES_USER: artifactory
+      POSTGRES_PASSWORD: artifactory
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "artifactory"]
+      interval: 5s
+      retries: 30
+
+  artifactory:
+    image: releases-docker.jfrog.io/jfrog/artifactory-${ARTIFACTORY_EDITION:-pro}:${ARTIFACTORY_VERSION:?set ARTIFACTORY_VERSION}
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      JF_SHARED_DATABASE_TYPE: postgresql
+      JF_SHARED_DATABASE_DRIVER: org.postgresql.Driver
+      JF_SHARED_DATABASE_URL: jdbc:postgresql://postgres:5432/artifactory
+      JF_SHARED_DATABASE_USERNAME: artifactory
+      JF_SHARED_DATABASE_PASSWORD: artifactory
+    ports: ["8081:8081", "8082:8082"]
+    volumes: [artifactory:/var/opt/jfrog/artifactory]
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8082/artifactory/api/system/ping"]
+      interval: 10s
+      retries: 60
+
+volumes:
+  postgres:
+  artifactory:

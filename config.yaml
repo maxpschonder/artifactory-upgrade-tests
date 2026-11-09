@@ -1,0 +1,56 @@
+# Repository names per format and repository type. URL and token come from
+# ARTIFACTORY_URL and ARTIFACTORY_TOKEN. Each virtual repository must aggregate
+# the local and remote repository of its format.
+#
+# virtual_deploy: the virtual repository has a default deployment repository,
+#   so the suite also pushes through it.
+# upstream: a fixed public artifact the remote and virtual tests fetch.
+#   Use immutable versions; Docker accepts a tag or a sha256: digest.
+# remote_url: upstream used only by the dev setup script (python -m aut.setup).
+
+pull_retries: 5
+pull_retry_delay: 3
+
+formats:
+  docker:
+    local: aut-docker-local
+    remote: aut-docker-remote
+    virtual: aut-docker-virtual
+    virtual_deploy: true
+    remote_url: https://registry-1.docker.io/
+    upstream: {image: library/alpine, reference: "3.20.3"}
+  maven:
+    local: aut-maven-local
+    remote: aut-maven-remote
+    virtual: aut-maven-virtual
+    virtual_deploy: true
+    remote_url: https://repo1.maven.org/maven2/
+    upstream: {group: junit, artifact: junit, version: "4.13.2"}
+  npm:
+    local: aut-npm-local
+    remote: aut-npm-remote
+    virtual: aut-npm-virtual
+    virtual_deploy: true
+    remote_url: https://registry.npmjs.org
+    upstream: {name: is-number, version: "7.0.0"}
+  pypi:
+    local: aut-pypi-local
+    remote: aut-pypi-remote
+    virtual: aut-pypi-virtual
+    virtual_deploy: true
+    remote_url: https://files.pythonhosted.org
+    upstream: {name: six, version: "1.16.0"}
+  helm:
+    local: aut-helm-local
+    remote: aut-helm-remote
+    virtual: aut-helm-virtual
+    virtual_deploy: true
+    remote_url: https://charts.jetstack.io
+    upstream: {chart: cert-manager, version: "v1.16.2"}
+  generic:
+    local: aut-generic-local
+    remote: aut-generic-remote
+    virtual: aut-generic-virtual
+    virtual_deploy: true
+    remote_url: https://repo1.maven.org/maven2/
+    upstream: {path: junit/junit/4.13.2/junit-4.13.2.pom}
