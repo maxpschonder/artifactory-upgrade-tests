@@ -21,6 +21,7 @@ COORD_KEYS = {
 }
 REPO_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 COORD_VALUE = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9._/@:+-]*$")
+REGISTRY = re.compile(r"^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$")
 
 
 class ConfigError(Exception):
@@ -47,11 +48,13 @@ class Config:
     formats: dict
     pull_retries: int = 5
     pull_retry_delay: float = 3.0
+    docker_registries: dict = field(default_factory=dict)
 
-    @property
-    def registry(self):
-        """Docker registry host:port; Artifactory serves /v2/ on the same host."""
-        return urlparse(self.url).netloc
+    def docker_prefix(self, repo):
+        """Image name prefix for a Docker repo. Default: the repository path method on the
+        host of ARTIFACTORY_URL; formats.docker.registries overrides it per repo, e.g. for
+        the port method (host:5001) or subdomains (repo.host)."""
+        return self.docker_registries.get(repo) or f"{urlparse(self.url).netloc}/{repo}"
 
     @property
     def insecure(self):
@@ -123,6 +126,10 @@ def load(path, env):
                 virtual_deploy=section.get("virtual_deploy", False),
                 upstream=dict(upstream),
             )
+    registries = (raw_formats.get("docker") or {}).get("registries") or {}
+    if not isinstance(registries, dict) or not all(
+            REPO_KEY.match(str(k)) and REGISTRY.match(str(v)) for k, v in registries.items()):
+        problems.append("formats.docker.registries: expected repo key -> host[:port][/path]")
     unknown = set(raw_formats) - set(FORMATS)
     if unknown:
         problems.append(f"formats: unknown {', '.join(sorted(unknown))}")
@@ -135,4 +142,5 @@ def load(path, env):
         formats=formats,
         pull_retries=int(raw.get("pull_retries", 5)),
         pull_retry_delay=float(raw.get("pull_retry_delay", 3)),
+        docker_registries=dict(registries),
     )

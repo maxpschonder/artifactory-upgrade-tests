@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from pathlib import Path
 
@@ -62,3 +63,11 @@ def test_log_redacts_token():
     log = Log(["secret-token"])
     log.add("Authorization: Bearer secret-token")
     assert log.text() == "Authorization: Bearer ***"
+
+
+def test_docker_uses_configured_registry(ctx, rec):
+    ctx.config = dataclasses.replace(ctx.config, docker_registries={"aut-docker-local": "docker.example.com:5001"})
+    adapter = ADAPTERS["docker"]
+    art = adapter.build(ctx, "aut-r1-local")
+    adapter.push(ctx, "aut-docker-local", art)
+    assert "docker://docker.example.com:5001/aut-r1-local:1.0.0" in rec.scripts[-1][1]

@@ -237,7 +237,7 @@ class Docker(Adapter):
 
     def ref(self, ctx, repo, coords):
         sep = "@" if coords["reference"].startswith("sha256:") else ":"
-        return f"docker://{ctx.config.registry}/{repo}/{coords['image']}{sep}{coords['reference']}"
+        return f"docker://{ctx.config.docker_prefix(repo)}/{coords['image']}{sep}{coords['reference']}"
 
     def build(self, ctx, name):
         out = ctx.tmp("image")

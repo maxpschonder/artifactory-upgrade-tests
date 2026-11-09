@@ -19,7 +19,7 @@ def write_config(tmp_path, mutate):
 def test_example_config_loads(config):
     assert set(config.formats) == set(cfg.FORMATS)
     assert config.user == "admin"
-    assert config.registry == "artifactory:8082"
+    assert config.docker_prefix("aut-docker-local") == "artifactory:8082/aut-docker-local"
     assert config.insecure
 
 
@@ -30,6 +30,7 @@ def test_example_config_loads(config):
     (lambda d: d["formats"]["generic"]["upstream"].update(path="../etc/passwd"), "invalid value"),
     (lambda d: d["formats"]["docker"]["upstream"].update(reference="x; rm -rf /"), "invalid value"),
     (lambda d: d["formats"].update(conan={}), "unknown conan"),
+    (lambda d: d["formats"]["docker"].update(registries={"aut-docker-local": "https://x:5001"}), "registries"),
 ])
 def test_invalid_config_is_rejected(tmp_path, mutate, message):
     with pytest.raises(cfg.ConfigError, match=re.escape(message)):
@@ -84,3 +85,12 @@ def test_invalid_manifest_is_rejected(tmp_path, mutate, message):
 
 def test_token_not_in_repr(config):
     assert config.token not in repr(config)
+
+
+def test_docker_registries_override_per_repo(tmp_path):
+    path = write_config(tmp_path, lambda d: d["formats"]["docker"].update(
+        registries={"aut-docker-local": "docker.example.com:5001", "old-repo": "old-repo.example.com"}))
+    config = cfg.load(path, ENV)
+    assert config.docker_prefix("aut-docker-local") == "docker.example.com:5001"
+    assert config.docker_prefix("old-repo") == "old-repo.example.com"
+    assert config.docker_prefix("aut-docker-remote") == "artifactory:8082/aut-docker-remote"

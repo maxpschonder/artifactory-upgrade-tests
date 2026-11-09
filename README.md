@@ -34,7 +34,7 @@ Both phases exit with a nonzero status if any check fails. Each run writes to `o
 
 To rebuild a report, run `./run.sh report --pre out/pre-<id> --post out/post-<id>`.
 
-Every generated artifact name contains the run ID (`aut-r<timestamp><hex>-local`, `-virtual`, `-vdeploy`), so repeated runs do not collide. Docker pushes go to the registry at the host of `ARTIFACTORY_URL` using the repository path method (`host/<repo>/<image>:<tag>`).
+Every generated artifact name contains the run ID (`aut-r<timestamp><hex>-local`, `-virtual`, `-vdeploy`), so repeated runs do not collide. Docker images are addressed with Artifactory's repository path method by default: `<host:port of ARTIFACTORY_URL>/<repo>/<image>:<tag>`. If your instance serves Docker repositories on their own ports or subdomains, map each repository to its address under `formats.docker.registries` in `config.yaml`, for example `aut-docker-local: artifactory.example.com:5001`. The other formats use URL paths under `ARTIFACTORY_URL` and need no port settings. Docker uses TLS verification when `ARTIFACTORY_URL` is `https`.
 
 ## Local upgrade scenario
 

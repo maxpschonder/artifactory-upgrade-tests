@@ -19,6 +19,14 @@ formats:
     virtual_deploy: true
     remote_url: https://registry-1.docker.io/
     upstream: {image: library/alpine, reference: "3.20.3"}
+    # Optional registry address per repository. Default: the repository path
+    # method, <host:port of ARTIFACTORY_URL>/<repo>. Use host:port for the port
+    # method or <repo>.<host> for subdomains. Keep entries for repositories that
+    # older manifests still reference.
+    # registries:
+    #   aut-docker-local: artifactory.example.com:5001
+    #   aut-docker-remote: artifactory.example.com:5002
+    #   aut-docker-virtual: artifactory.example.com:5003
   maven:
     local: aut-maven-local
     remote: aut-maven-remote
