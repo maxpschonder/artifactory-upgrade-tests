@@ -24,7 +24,7 @@ def test_pre_then_post_detects_deleted_artifact(fake, tmp_path):
     assert run(fake, tmp_path, "pre") == 0
     pre_dir = out / (out / "latest-pre").read_text().strip()
     pre_results = results(pre_dir)
-    assert len(pre_results) == 18 and all(r["status"] == "passed" for r in pre_results)
+    assert len(pre_results) == 21 and all(r["status"] == "passed" for r in pre_results)
     assert (pre_dir / "junit.xml").exists()
 
     entries = store.load_manifest(pre_dir / "manifest.json")["artifacts"]
@@ -40,7 +40,7 @@ def test_pre_then_post_detects_deleted_artifact(fake, tmp_path):
     assert all(r["status"] == "passed" for r in post_results if r["kind"] == "matrix")
 
     html = (post_dir / "report.html").read_text()
-    assert len(re.findall(r"<tr><th>(?:docker|maven|npm|pypi|helm|generic)</th>", html)) == 18
+    assert len(re.findall(r"<tr><th>(?:docker|maven|npm|pypi|nuget|helm|generic)</th>", html)) == 21
     assert "FAIL" in html and fake.config.token not in html
     junit = (post_dir / "junit.xml").read_text()
     assert 'name="test_old_artifact[maven-local-' in junit and "<failure" in junit
@@ -56,9 +56,9 @@ def test_report_pending_and_escaping():
          "duration": 1, "error": "<script>alert(1)</script>", "log": "a & b"}]}
     html = report.render(pre, None)
     assert "<script>alert" not in html and "&lt;script&gt;" in html and "a &amp; b" in html
-    assert len(re.findall(r"<tr><th>(?:docker|maven|npm|pypi|helm|generic)</th>", html)) == 18
-    assert html.count("PENDING</span>") == 36  # both post columns for 18 rows
-    assert html.count('MISSING</span></td>') == 17  # pre rows without a result
+    assert len(re.findall(r"<tr><th>(?:docker|maven|npm|pypi|nuget|helm|generic)</th>", html)) == 21
+    assert html.count("PENDING</span>") == 42  # both post columns for 21 rows
+    assert html.count('MISSING</span></td>') == 20  # pre rows without a result
 
 
 def test_format_filter_runs_subset_and_reports_disabled(fake, tmp_path):
@@ -67,7 +67,7 @@ def test_format_filter_runs_subset_and_reports_disabled(fake, tmp_path):
     pre_dir = out / (out / "latest-pre").read_text().strip()
     assert {r["format"] for r in results(pre_dir)} == {"maven", "generic"}
     html = (pre_dir / "report.html").read_text()
-    assert html.count("DISABLED</span></td>") == 12
+    assert html.count("DISABLED</span></td>") == 15
 
 
 def test_unknown_format_filter_is_rejected(fake, tmp_path):

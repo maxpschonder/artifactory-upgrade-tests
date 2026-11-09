@@ -1,10 +1,10 @@
 # Artifactory Upgrade Tests
 
-This suite checks an Artifactory instance before and after an upgrade. For Docker, Maven, npm, PyPI, Helm, and Generic, it pushes and pulls through Local, Remote, and Virtual repositories with each format's native client, then compares SHA-256 checksums. The `post` phase also downloads every artifact recorded by `pre` and fails if any is missing or changed.
+This suite checks an Artifactory instance before and after an upgrade. For Docker, Maven, npm, PyPI, NuGet, Helm, and Generic, it pushes and pulls through Local, Remote, and Virtual repositories with each format's native client, then compares SHA-256 checksums. The `post` phase also downloads every artifact recorded by `pre` and fails if any is missing or changed.
 
 ## Requirements
 
-You need Docker with Compose v2.13 or later. The suite runs in one container built from `Dockerfile`. It holds the Python/pytest runner and every native client: skopeo, mvn, npm, pip/twine, helm, and curl. GitHub Actions publishes it as `ghcr.io/maxpschonder/artifactory-upgrade-tests` (tags `latest`, `sha-<commit>`, and `<version>` for `v*` tags; amd64 and arm64). `./run.sh` pulls that image if it is missing and mounts the checkout, so code and config changes need no rebuild. `docker compose build` builds the image locally instead, and `AUT_IMAGE` selects another tag.
+You need Docker with Compose v2.13 or later. The suite runs in one container built from `Dockerfile`. It holds the Python/pytest runner and every native client: skopeo, mvn, npm, pip/twine, dotnet (.NET 8 SDK), helm, and curl. The image is about 1.8 GB, most of it the .NET SDK. GitHub Actions publishes it as `ghcr.io/maxpschonder/artifactory-upgrade-tests` (tags `latest`, `sha-<commit>`, and `<version>` for `v*` tags; amd64 and arm64). `./run.sh` pulls that image if it is missing and mounts the checkout, so code and config changes need no rebuild. `docker compose build` builds the image locally instead, and `AUT_IMAGE` selects another tag.
 
 The image also runs without a checkout, for example in a CI job:
 
@@ -13,7 +13,7 @@ docker run --rm -e ARTIFACTORY_URL -e ARTIFACTORY_TOKEN -v "$PWD/out:/opt/aut/ou
   -v "$PWD/config.yaml:/opt/aut/config.yaml" ghcr.io/maxpschonder/artifactory-upgrade-tests python -m aut pre
 ```
 
-A full run needs an instance that supports all six formats, which means Artifactory Pro or a trial license. JFrog Container Registry lacks Maven, npm, and PyPI, and Artifactory OSS lacks Docker, npm, PyPI, and Helm. To test a subset, set `AUT_FORMATS`, for example `AUT_FORMATS=maven,generic` for OSS. The report then marks the other formats as DISABLED.
+A full run needs an instance that supports all seven formats, which means Artifactory Pro or a trial license. JFrog Container Registry lacks Maven, npm, PyPI, and NuGet, and Artifactory OSS lacks Docker, npm, PyPI, NuGet, and Helm. To test a subset, set `AUT_FORMATS`, for example `AUT_FORMATS=maven,generic` for OSS. The report then marks the other formats as DISABLED.
 
 ## Running against an existing instance
 
@@ -26,7 +26,7 @@ Both phases exit with a nonzero status if any check fails. Each run writes to `o
 
 | File | Content |
 |---|---|
-| `report.html` | Standalone report: 18 rows (format × repository type) with columns for pre, old artifacts, and post; logs expand per test |
+| `report.html` | Standalone report: 21 rows (format × repository type) with columns for pre, old artifacts, and post; logs expand per test |
 | `junit.xml` | One test case per combination and per old artifact, for GitLab |
 | `results.json` | Status, error, and redacted log per test |
 | `manifest.json` | Every verified artifact: repository, coordinates, SHA-256 |
@@ -89,6 +89,7 @@ python -m pytest
 
 - Proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) are forwarded to the containers but not configured per client yet. Maven, for example, ignores them.
 - Maven downloads its deploy and dependency plugins from Maven Central; only the artifacts under test go through Artifactory. For `http://` URLs the generated Maven settings lift Maven's plain-HTTP block.
-- Docker, npm, PyPI, and Helm have not run against a live instance yet, because that needs a Pro or trial license.
+- Docker, npm, PyPI, NuGet, and Helm have not run against a live instance yet, because that needs a Pro or trial license.
+- NuGet pulls restore a throwaway `net8.0` project, because `dotnet` has no download command. The generated `NuGet.Config` reads credentials as `%ARTIFACTORY_USER%` and `%ARTIFACTORY_TOKEN%`, so the token is never written to disk.
 - Remote-cache checks query AQL, which needs a token with read access to the `<remote>-cache` repositories.
 - The ghcr.io package inherits the repository's private visibility, so pulling it needs `docker login ghcr.io` with a token that has `read:packages`, unless the package is made public.

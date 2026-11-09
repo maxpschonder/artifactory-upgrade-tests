@@ -27,7 +27,7 @@ def rec(ctx):
     return ctx.run
 
 
-@pytest.mark.parametrize("fmt", ["generic", "maven", "npm", "pypi", "docker"])
+@pytest.mark.parametrize("fmt", ["generic", "maven", "npm", "pypi", "nuget", "docker"])
 def test_build_is_deterministic(ctx, fmt):
     a, b = ADAPTERS[fmt].build(ctx, "aut-r1-local"), ADAPTERS[fmt].build(ctx, "aut-r1-local")
     assert a.checksums == b.checksums and a.coords == b.coords
@@ -71,3 +71,15 @@ def test_docker_uses_configured_registry(ctx, rec):
     art = adapter.build(ctx, "aut-r1-local")
     adapter.push(ctx, "aut-docker-local", art)
     assert "docker://docker.example.com:5001/aut-r1-local:1.0.0" in rec.scripts[-1][1]
+
+
+def test_nuget_package_and_config(ctx):
+    import zipfile
+    adapter = ADAPTERS["nuget"]
+    art = adapter.build(ctx, "aut-r1-local")
+    with zipfile.ZipFile(art.path) as z:
+        assert "<id>aut-r1-local</id>" in z.read("aut-r1-local.nuspec").decode()
+    config = (adapter.config(ctx, "aut-nuget-local") / "NuGet.Config").read_text()
+    assert "/api/nuget/v3/aut-nuget-local/index.json" in config and "%ARTIFACTORY_TOKEN%" in config
+    assert adapter.cache_names({"newtonsoft.json.13.0.3.nupkg": "a"}, {"name": "Newtonsoft.Json", "version": "13.0.3"}) \
+        == ["Newtonsoft.Json.13.0.3.nupkg", "newtonsoft.json.13.0.3.nupkg"]

@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-FORMATS = ("docker", "maven", "npm", "pypi", "helm", "generic")
+FORMATS = ("docker", "maven", "npm", "pypi", "nuget", "helm", "generic")
 REPO_TYPES = ("local", "remote", "virtual")
 # Coordinate keys per format; used for upstream config and manifest entries alike.
 COORD_KEYS = {
@@ -16,6 +16,7 @@ COORD_KEYS = {
     "maven": ("group", "artifact", "version"),
     "npm": ("name", "version"),
     "pypi": ("name", "version"),
+    "nuget": ("name", "version"),
     "helm": ("chart", "version"),
     "generic": ("path",),
 }

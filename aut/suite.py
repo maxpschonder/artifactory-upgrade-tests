@@ -60,9 +60,9 @@ def record(ctx, adapter, repo_type, repo, coords, sums):
     ctx.entries.append(store.entry(adapter.name, repo_type, repo, coords, sums))
 
 
-def check_cached(ctx, adapter, remote, sums):
+def check_cached(ctx, adapter, remote, coords, sums):
     """The remote repo's cache must hold at least one of the fetched files."""
-    names = adapter.cache_names(sums)
+    names = adapter.cache_names(sums, coords)
     query = 'items.find(%s).include("repo","path","name")' % json.dumps(
         {"repo": f"{remote}-cache", "$or": [{"name": n} for n in names]})
     results = ctx.api("POST", "/api/search/aql", query, "text/plain").get("results", [])
@@ -88,7 +88,7 @@ def run_combination(ctx, adapter, repo_type):
         coords = fc.upstream
         first = pull_verified(ctx, adapter, fc.remote, coords)
         pull_verified(ctx, adapter, fc.remote, coords, first)
-        check_cached(ctx, adapter, fc.remote, first)
+        check_cached(ctx, adapter, fc.remote, coords, first)
         record(ctx, adapter, "remote", fc.remote, coords, first)
     elif repo_type == "virtual":
         push_and_pull(ctx, adapter, f"{prefix}-virtual", fc.local, fc.virtual, "virtual")

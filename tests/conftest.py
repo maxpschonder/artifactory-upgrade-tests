@@ -88,7 +88,7 @@ class FakeAdapter:
     def pull(self, ctx, repo, coords):
         return self.art.pull(repo, coords)
 
-    def cache_names(self, sums):
+    def cache_names(self, sums, coords):
         return sorted(sums)
 
 

@@ -13,6 +13,7 @@ import re
 import tarfile
 import zipfile
 from dataclasses import dataclass
+from html import escape
 from shlex import quote as q
 
 from .clients import sha256_bytes, sha256_dir, sha256_file
@@ -54,7 +55,7 @@ def payload(name):
 class Adapter:
     name = ""
 
-    def cache_names(self, sums):
+    def cache_names(self, sums, coords):
         return sorted(sums)
 
 
@@ -195,6 +196,67 @@ class PyPI(Adapter):
         return sha256_dir(out)
 
 
+class NuGet(Adapter):
+    """dotnet has no download command, so pulls restore a throwaway project into a fresh
+    packages folder; NuGet keeps the downloaded .nupkg there unchanged."""
+    name = "nuget"
+
+    def config(self, ctx, repo):
+        """NuGet.Config with only the repository under test. NuGet expands %VAR% in
+        values, so the token stays out of the file."""
+        path = ctx.tmp("nuget")
+        insecure = ' allowInsecureConnections="true"' if ctx.config.insecure else ""
+        source = escape(f"{ctx.config.url}/api/nuget/v3/{repo}/index.json")
+        (path / "NuGet.Config").write_text(f"""<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="aut" value="{source}" protocolVersion="3"{insecure} />
+  </packageSources>
+  <packageSourceCredentials>
+    <aut>
+      <add key="Username" value="%ARTIFACTORY_USER%" />
+      <add key="ClearTextPassword" value="%ARTIFACTORY_TOKEN%" />
+    </aut>
+  </packageSourceCredentials>
+</configuration>
+""")
+        return path
+
+    def build(self, ctx, name):
+        version = "1.0.0"
+        nuspec = (f'<?xml version="1.0" encoding="utf-8"?>\n'
+                  f'<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"><metadata>'
+                  f'<id>{name}</id><version>{version}</version><authors>aut</authors>'
+                  f'<description>Artifactory upgrade test</description></metadata></package>\n')
+        types = ('<?xml version="1.0" encoding="utf-8"?><Types xmlns='
+                 '"http://schemas.openxmlformats.org/package/2006/content-types">'
+                 '<Default Extension="nuspec" ContentType="application/octet" />'
+                 '<Default Extension="txt" ContentType="application/octet" /></Types>')
+        path = ctx.tmp("build") / f"{name}.{version}.nupkg"
+        path.write_bytes(zipped({"[Content_Types].xml": types.encode(), f"{name}.nuspec": nuspec.encode(),
+                                 "content/aut.txt": payload(name)}))
+        return Artifact({"name": name, "version": version}, {path.name: sha256_file(path)}, path)
+
+    def push(self, ctx, repo, art):
+        ctx.run("nuget", f"cd {q(str(self.config(ctx, repo)))} && dotnet nuget push {q(str(art.path))} "
+                         '--source aut --api-key "$ARTIFACTORY_USER:$ARTIFACTORY_TOKEN"', ctx.log)
+
+    def pull(self, ctx, repo, coords):
+        project = self.config(ctx, repo)
+        (project / "aut.csproj").write_text(
+            '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework>'
+            f'</PropertyGroup><ItemGroup><PackageReference Include="{escape(coords["name"])}" '
+            f'Version="[{escape(coords["version"])}]" /></ItemGroup></Project>\n')
+        out = ctx.tmp("pull")
+        ctx.run("nuget", f"cd {q(str(project))} && dotnet restore --no-cache --packages {q(str(out))}", ctx.log)
+        return {p.name: sha256_file(p) for p in out.rglob("*.nupkg")}
+
+    def cache_names(self, sums, coords):
+        # Artifactory may keep the upstream's casing; the client lowercases.
+        return sorted(set(sums) | {f"{coords['name']}.{coords['version']}.nupkg"})
+
+
 def sha256_b64(data):
     return base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
 
@@ -278,8 +340,8 @@ class Docker(Adapter):
         sums["manifest.raw"] = sha256_file(out / "manifest.raw")
         return sums
 
-    def cache_names(self, sums):
+    def cache_names(self, sums, coords):
         return sorted(f"sha256__{k}" for k in sums if re.fullmatch(r"[0-9a-f]{64}", k))
 
 
-ADAPTERS = {a.name: a for a in (Docker(), Maven(), Npm(), PyPI(), Helm(), Generic())}
+ADAPTERS = {a.name: a for a in (Docker(), Maven(), Npm(), PyPI(), NuGet(), Helm(), Generic())}

@@ -48,6 +48,13 @@ formats:
     virtual_deploy: true
     remote_url: https://files.pythonhosted.org
     upstream: {name: six, version: "1.16.0"}
+  nuget:
+    local: aut-nuget-local
+    remote: aut-nuget-remote
+    virtual: aut-nuget-virtual
+    virtual_deploy: true
+    remote_url: https://www.nuget.org/
+    upstream: {name: Newtonsoft.Json, version: "13.0.3"}
   helm:
     local: aut-helm-local
     remote: aut-helm-remote
